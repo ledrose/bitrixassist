@@ -2,6 +2,8 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as glob from 'glob';
 const engine = require("php-parser");
 
 function handleParse(node: any) {
@@ -58,7 +60,58 @@ function handleParse(node: any) {
 }
 
 function findBitrixRoot(filePath: string) {
+	const folderName = "bitrix";
+	let currentPath = path.resolve(filePath);
+	
+	if (fs.existsSync(currentPath) && fs.statSync(currentPath).isFile()) {
+		currentPath = path.dirname(currentPath);
+	}
 
+	while (true) {
+		const targetFolder = path.join(currentPath, folderName);
+
+		if (fs.existsSync(targetFolder) && fs.statSync(targetFolder).isDirectory()) {
+			return currentPath;
+		}
+
+		const parentPath = path.dirname(currentPath);
+
+		if (parentPath === currentPath) {
+			return null;
+		}
+
+		currentPath = parentPath;
+	}
+}
+
+async function searchForComponent(rootPath: string, namespace: string, componentName: string) {
+	const globSchemas = [
+		`${rootPath}/local/components/${namespace}/${componentName}/component.php`,
+		`${rootPath}/bitrix/components/${namespace}/${componentName}/component.php` 
+	];
+	let results: string[] = [];
+	for (let i = 0; i < globSchemas.length; i++) {
+		results = results.concat(await glob.glob(globSchemas[i]));
+	}
+	return results;
+}
+
+async function searchForTemplate(rootPath: string, namespace: string, componentName: string, templateName: string) {
+	if (templateName.trim() == "") {
+		templateName = ".default";
+	}
+	const fileNamePattern = "{template.php,element.php}";
+	const globSchemas = [
+		`${rootPath}/local/templates/*/components/${namespace}/${componentName}/${templateName}/${fileNamePattern}`,
+		`${rootPath}/local/components/${namespace}/${componentName}/templates/${templateName}/${fileNamePattern}`,
+		`${rootPath}/bitrix/templates/*/components/${namespace}/${componentName}/${templateName}/${fileNamePattern}`,
+		`${rootPath}/bitrix/components/${namespace}/${componentName}/templates/${templateName}/${fileNamePattern}` 
+	];
+	let results: string[] = [];
+	for (let i = 0; i < globSchemas.length; i++) {
+		results = results.concat(await glob.glob(globSchemas[i]));
+	}
+	return results;
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -78,31 +131,44 @@ export function activate(context: vscode.ExtensionContext) {
 			short_tags: true
 		}
 	})
-	const linkProvider: vscode.DocumentLinkProvider = {provideDocumentLinks(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.DocumentLink[]> {
+	const linkProvider: vscode.DocumentLinkProvider = {async provideDocumentLinks(document: vscode.TextDocument, token: vscode.CancellationToken) {
 		console.log("LinkProvider trigger");
 		const links: vscode.DocumentLink[] = [];
-        const text = document.getText();
+		const rootDir = findBitrixRoot(document.uri?.fsPath);
+		if (!rootDir) {
+			return links;
+		}
+		const text = document.getText();
 		const code = parser.parseCode(text);
 		const data = handleParse(code);
 		
-		let loc, start, end, targeUrl;
-		data.forEach((el: any) => {
-			// new vscode.Position()
+		let loc, start, end, targetUrl;
+		for (let i = 0; i < data.length; i++) {
+			const el = data[i];
 			if (el.arg1) {
-				start = new vscode.Position(el.arg1.start.line-1,el.arg1.start.column);
-				end = new vscode.Position(el.arg1.end.line-1,el.arg1.end.column);
-				loc = new vscode.Range(start,end);
-				targeUrl = vscode.Uri.parse("https://google.com");
-				links.push(new vscode.DocumentLink(loc, targeUrl))
+				const [namespace, componentName] = el.arg1.value.split(':');
+				const componentPaths = await searchForComponent(rootDir,namespace,componentName);
+				if (componentPaths[0]) {
+					start = new vscode.Position(el.arg1.start.line-1,el.arg1.start.column);
+					end = new vscode.Position(el.arg1.end.line-1,el.arg1.end.column);
+					loc = new vscode.Range(start,end);						
+					targetUrl = vscode.Uri.file(componentPaths[0]);
+					links.push(new vscode.DocumentLink(loc, targetUrl))
+				}
+
+				if (el.arg2) {
+					const templatePaths = await searchForTemplate(rootDir, namespace, componentName, el.arg2.value);
+					// if (templatePaths[0]) {
+					if (templatePaths[0]) {
+						start = new vscode.Position(el.arg2.start.line-1,el.arg2.start.column);
+						end = new vscode.Position(el.arg2.end.line-1,el.arg2.end.column);
+						loc = new vscode.Range(start,end);
+						targetUrl = vscode.Uri.file(templatePaths[0]);
+						links.push(new vscode.DocumentLink(loc, targetUrl))
+					}
+				}
 			}
-			if (el.arg2) {
-				start = new vscode.Position(el.arg2.start.line-1,el.arg2.start.column);
-				end = new vscode.Position(el.arg2.end.line-1,el.arg2.end.column);
-				loc = new vscode.Range(start,end);
-				targeUrl = vscode.Uri.parse("https://microsoft.com");
-				links.push(new vscode.DocumentLink(loc, targeUrl))
-			}
-		});
+		}
 
 		return links;
 	}};
