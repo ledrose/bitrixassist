@@ -85,9 +85,10 @@ function findBitrixRoot(filePath: string) {
 }
 
 async function searchForComponent(rootPath: string, namespace: string, componentName: string) {
+	const fileNamePattern = "{component.php,class.php}";
 	const globSchemas = [
-		`${rootPath}/local/components/${namespace}/${componentName}/component.php`,
-		`${rootPath}/bitrix/components/${namespace}/${componentName}/component.php` 
+		`${rootPath}/local/components/${namespace}/${componentName}/${fileNamePattern}`,
+		`${rootPath}/bitrix/components/${namespace}/${componentName}/${fileNamePattern}` 
 	];
 	let results: string[] = [];
 	for (let i = 0; i < globSchemas.length; i++) {
@@ -158,7 +159,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 				if (el.arg2) {
 					const templatePaths = await searchForTemplate(rootDir, namespace, componentName, el.arg2.value);
-					// if (templatePaths[0]) {
 					if (templatePaths[0]) {
 						start = new vscode.Position(el.arg2.start.line-1,el.arg2.start.column);
 						end = new vscode.Position(el.arg2.end.line-1,el.arg2.end.column);
