@@ -40,6 +40,7 @@
     "typescript-eslint": "^8.56.1"
   },
   "dependencies": {
+    "@vscode/vsce": "^3.7.1",
     "glob": "^13.0.6",
     "php-parser": "^3.5.0"
   }
