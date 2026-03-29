@@ -88,11 +88,16 @@ async function searchForComponent(rootPath: string, namespace: string, component
 	const fileNamePattern = "{component.php,class.php}";
 	const globSchemas = [
 		`${rootPath}/local/components/${namespace}/${componentName}/${fileNamePattern}`,
-		`${rootPath}/bitrix/components/${namespace}/${componentName}/${fileNamePattern}` 
+		`${rootPath}/bitrix/components/${namespace}/${componentName}/${fileNamePattern}`,
+		`${rootPath}/local/components/${namespace}/${componentName}/`,
+		`${rootPath}/bitrix/components/${namespace}/${componentName}/`
 	];
 	let results: string[] = [];
 	for (let i = 0; i < globSchemas.length; i++) {
 		results = results.concat(await glob.glob(globSchemas[i]));
+		if (results.length > 0) {
+			break;
+		}
 	}
 	return results;
 }
@@ -106,11 +111,18 @@ async function searchForTemplate(rootPath: string, namespace: string, componentN
 		`${rootPath}/local/templates/*/components/${namespace}/${componentName}/${templateName}/${fileNamePattern}`,
 		`${rootPath}/local/components/${namespace}/${componentName}/templates/${templateName}/${fileNamePattern}`,
 		`${rootPath}/bitrix/templates/*/components/${namespace}/${componentName}/${templateName}/${fileNamePattern}`,
-		`${rootPath}/bitrix/components/${namespace}/${componentName}/templates/${templateName}/${fileNamePattern}` 
+		`${rootPath}/bitrix/components/${namespace}/${componentName}/templates/${templateName}/${fileNamePattern}`,
+		`${rootPath}/local/templates/*/components/${namespace}/${componentName}/${templateName}/`,
+		`${rootPath}/local/components/${namespace}/${componentName}/templates/${templateName}/`,
+		`${rootPath}/bitrix/templates/*/components/${namespace}/${componentName}/${templateName}/`,
+		`${rootPath}/bitrix/components/${namespace}/${componentName}/templates/${templateName}/` 
 	];
 	let results: string[] = [];
 	for (let i = 0; i < globSchemas.length; i++) {
 		results = results.concat(await glob.glob(globSchemas[i]));
+		if (results.length > 0) {
+			break;
+		}
 	}
 	return results;
 }
